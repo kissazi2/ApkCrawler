@@ -1,7 +1,7 @@
 #coding:utf-8
 
 import os, sys, time, random, json
-import re, requests, urllib3
+import re, requests, urllib2
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -170,13 +170,43 @@ def downloadApk(apkid, apkfilename):
     real_url = re.search(real_url,content).group(1)
     #print real_url
     apkrealname = real_url[real_url.rfind('/')+1:]
-    apkrealname = urllib3.unquote(apkrealname)
+
+    # template2 = 'http://(^*.)/download/*.'
+    # hostParttern = re.compile(template2)
+    # hostName = re.search(real_url, content).group(1)
+
+    apkrealname = urllib2.unquote(apkrealname)
     s.headers['Host'] = 'f3.market.xiaomi.com'
-    resp = s.get(real_url,timeout = 100)
-    content = resp.content
-    with open(apkfilename,'wb+') as f:
-      f.write(content)
+    # resp = s.get(real_url,timeout = 100)
+    # content = resp.content
+    # with open(apkfilename,'wb+') as f:
+    #   f.write(content)
     #
+
+    url = real_url
+
+    file_name = url.split('/')[-1]
+    file_name = '/Users/bang/Downloads/apks/'+file_name
+    u = urllib2.urlopen(url)
+    f = open(file_name, 'wb')
+    meta = u.info()
+    file_size = int(meta.getheaders("Content-Length")[0])
+    print "Downloading: %s Bytes: %s" % (file_name, file_size)
+
+    file_size_dl = 0
+    block_sz = 8192
+    while True:
+        buffer = u.read(block_sz)
+        if not buffer:
+            break
+
+        file_size_dl += len(buffer)
+        f.write(buffer)
+        status = r"%10d  [%3.2f%%]" % (file_size_dl, file_size_dl * 100. / file_size)
+        status = status + chr(8) * (len(status) + 1)
+        print status,
+
+    f.close()
     pass
 
 
@@ -184,7 +214,7 @@ def downloadApk(apkid, apkfilename):
 if __name__ == "__main__":
   allapklist = []
   # gameswebpage = "http://app.mi.com/gTopList"
-  appswebpages = ["http://app.mi.com/topList?page=%d" % i for i in xrange(1,43)]
+  appswebpages = ["http://app.mi.com/topList?page=%d" % i for i in xrange(1,1)]
   # appswebpages.insert(0, gameswebpage)
 
   for weburl in appswebpages:
