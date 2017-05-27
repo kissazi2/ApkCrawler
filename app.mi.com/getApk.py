@@ -1,7 +1,7 @@
 #coding:utf-8
 
 import os, sys, time, random, json
-import re, requests, urllib2
+import re, requests, urllib3
 import sys
 reload(sys)
 sys.setdefaultencoding('utf-8')
@@ -88,7 +88,8 @@ def fetchApkinfoFromWebpage(weburl="http://app.mi.com/topList?page=1"):
         apk_icon = apk_name = item_soup.find_all('img')[0].get('data-src')
         apk_name_cn = item_soup.find_all('h5')[0].get_text() #item_soup.find_all('a')[-2].get_text() #item_soup.find_all('h5')[0].get_text() ##apk_name = item_soup.find_all('img')[0].get('alt').encode('utf-8')
         apk_webpage = "http://app.mi.com" + item_soup.find_all('a')[0].get('href')
-        apk_id = apk_webpage.split("/")[-1]
+        apk_package_id = apk_webpage.split("/")[-1]
+        apk_id = get_apk_id(apk_package_id)
         apk_url = get_apk_real_downloadurl(apk_id)
         #apk_name_en = BeautifulSoup(getURLContent(apk_webpage)).findAll(attrs={"class":"special-li"})[0].get_text()
         apk_name_en = apk_url.split("/")[-1].replace(".apk","")
@@ -99,6 +100,27 @@ def fetchApkinfoFromWebpage(weburl="http://app.mi.com/topList?page=1"):
     #print len(apklist)
     return apklist
 
+def get_apk_id(apkid):
+    apkurl_prefix = "http://app.mi.com/"
+    s = requests.session()
+    headers = {
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        "Accept-Language": "zh-cn,zh;q=0.8,en-us;q=0.5,en;q=0.3",
+        "Accept-Encoding": "gzip, deflate,sdch",
+        "Host": "app.mi.com",
+        "User-Agent": "Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/40.0.2214.111 Safari/537.36",
+        "Connection": "keep-alive",
+        "Cache-Control": "no-cache",
+    }
+    s.headers.update(headers)
+    resp = s.get(apkurl_prefix + str(apkid), timeout=1000, allow_redirects=False)
+    content = resp.content
+    # print content
+    template = '<a href="(/download/.*?)" class="download">(.*?)</a>'
+    postFixPattern = re.compile(template)
+    apkurl_postFix = re.search(postFixPattern, content).group(1)
+    split = re.search(postFixPattern, content).group(1).split('/')
+    return split[split.__len__()-1]
 
 
 def get_apk_real_downloadurl(apkid):
@@ -114,14 +136,17 @@ def get_apk_real_downloadurl(apkid):
       "Cache-Control" : "no-cache",
     }
     s.headers.update(headers)
-    resp = s.get(apkurl_prefix+str(apkid), timeout = 1000, allow_redirects=False)
-    content = resp.content
-    #print content
-    template = '<a href="(.*?)">here</a>'
-    real_url = re.compile(template)
-    real_url = re.search(real_url,content).group(1)
+    # resp = s.get(apkurl_prefix+str(apkid), timeout = 1000, allow_redirects=False)
+    # content = resp.content
+    # #print content
+    # template = '<a href="(/download/.*?)" class="download">(.*?)</a>'
+    # postFixPattern = re.compile(template)
+    # apkurl_postFix = re.search(postFixPattern,content).group(1)
     ##http://f5.market.mi-img.com/download/AppStore/044e54cd2ffb22f2f87baf3be3bd41255a543b33f/com.qiyi.video.apk
-    return real_url
+    redirectUrl = apkurl_prefix + apkid
+
+    downloadResp = s.get(redirectUrl, timeout=1000, allow_redirects=False)
+    return downloadResp.headers['Location']
 
 
 def downloadApk(apkid, apkfilename):
@@ -145,7 +170,7 @@ def downloadApk(apkid, apkfilename):
     real_url = re.search(real_url,content).group(1)
     #print real_url
     apkrealname = real_url[real_url.rfind('/')+1:]
-    apkrealname = urllib2.unquote(apkrealname)
+    apkrealname = urllib3.unquote(apkrealname)
     s.headers['Host'] = 'f3.market.xiaomi.com'
     resp = s.get(real_url,timeout = 100)
     content = resp.content
@@ -158,9 +183,9 @@ def downloadApk(apkid, apkfilename):
 
 if __name__ == "__main__":
   allapklist = []
-  gameswebpage = "http://app.mi.com/gTopList"
+  # gameswebpage = "http://app.mi.com/gTopList"
   appswebpages = ["http://app.mi.com/topList?page=%d" % i for i in xrange(1,43)]
-  appswebpages.insert(0, gameswebpage)
+  # appswebpages.insert(0, gameswebpage)
 
   for weburl in appswebpages:
       apklist = fetchApkinfoFromWebpage(weburl)
@@ -168,7 +193,7 @@ if __name__ == "__main__":
   print len(allapklist)
 
 
-  #downloadApk(125, "com.qiyi.video.apk")
+  downloadApk(125, "com.qiyi.video.apk")
   #print get_apk_real_downloadurl("http://app.mi.com/download/125")
   #write2file("com.qiyi.video.apk", getURL("http://app.mi.com/download/125"))
   
